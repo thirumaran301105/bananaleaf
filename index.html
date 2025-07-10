@@ -52,11 +52,6 @@
       </div>
     </div>
   </header>
-
-  <!-- Hero Section -->
-  
-
-    <!-- Highlight Section: Fresh Banana Leaves Delivered Daily -->
 <section class="py-16 px-4" >
   <section class="text-center mb-12">
     <h2 class="text-4xl font-bold mb-4">
@@ -67,7 +62,6 @@
     </p>
   </section>
 
-  <!-- Features Row -->
   <section class="flex flex-col md:flex-row justify-center items-stretch gap-6 px-6 max-w-6xl mx-auto">
     <div class="bg-white border border-green-200 p-6 rounded-xl shadow hover:shadow-lg text-center flex-1">
       <div class="text-green-600 text-3xl mb-2">🍃</div>
@@ -96,9 +90,7 @@
       🛒 View Cart (<span id="cart-count">0</span>)
     </button>
 
-    <!-- Product Cards -->
     <div class="grid md:grid-cols-3 gap-10 ">
-      <!-- Thalai Ilai -->
       <div class="bg-white p-6 rounded-xl shadow border border-green-200 text-center transition-transform hover:scale-105">
         <div class="text-green-600 text-4xl mb-3">🍃</div>
         <h3 class="text-xl font-semibold mb-1">Thalai Ilai Leaf</h3>
@@ -114,7 +106,6 @@
         <button onclick="addToCart('thalai')" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Add to Order</button>
       </div>
 
-      <!-- Parcel Leaf -->
       <div class="bg-white p-6 rounded-xl shadow border border-green-200 text-center transition-transform hover:scale-105">
         <div class="text-green-600 text-4xl mb-3">🍃</div>
         <h3 class="text-xl font-semibold mb-1">Parcel Leaf</h3>
@@ -130,7 +121,6 @@
         <button onclick="addToCart('parcel')" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Add to Order</button>
       </div>
 
-      <!-- Round Leaf -->
       <div class="bg-white p-6 rounded-xl shadow border border-green-200 text-center transition-transform hover:scale-105">
         <div class="text-green-600 text-4xl mb-3">🍃</div>
         <h3 class="text-xl font-semibold mb-1">Round Shape Leaf</h3>
@@ -148,7 +138,6 @@
     </div>
   </section>
 
-  <!-- Why Choose Us Section -->
   <section class="bg-white mt-16 py-12 px-4 rounded-xl max-w-6xl mx-auto">
     <h2 class="text-2xl font-bold mb-6 text-center">Why Choose Our Banana Leaves?</h2>
     <div class="grid md:grid-cols-4 gap-6 text-center">
@@ -175,19 +164,16 @@
     </div>
   </section>
 
-  <!-- Cart Section -->
   <section class="max-w-4xl mx-auto mt-16 px-4" id="cart-items">
     <h2 class="text-2xl font-bold mb-4">🛒 Your Cart</h2>
     <p class="text-gray-600">No items in cart yet.</p>
   </section>
 
-  <!-- Footer -->
   <footer class="bg-green-600 text-white text-center py-6 mt-10">
     <p class="text-sm">© 2025 Fresh Banana Leaves. All rights reserved.</p>
     <p class="text-xs">For inquiries, call us at +91 9791006424 or +91 9600082467</p>
   </footer>
 
-  <!-- Scripts -->
   <script>
     const prices = {
       thalai: 4,
@@ -281,7 +267,10 @@
               <label class="block text-sm">Phone Number:</label>
               <input type="tel" id="user-phone" class="w-full p-2 border rounded" required>
             </div>
-            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Submit</button>
+            <div class="mb-2">
+              <label class="block text-sm">Order Date:</label>
+              <input type="date" id="user-date" class="w-full p-2 border rounded" required>
+            </div>
           </form>
         </div>
         <div class="mt-4 text-right">
@@ -302,146 +291,102 @@
       renderCart();
     }
 
+
     async function orderNow() {
-  const name = document.getElementById("user-name").value;
-  const phone = document.getElementById("user-phone").value;
-  const today = new Date().toISOString().split("T")[0]; // e.g., 2025-07-10
+      const name = document.getElementById("user-name").value;
+      const phone = document.getElementById("user-phone").value;
+      const date = document.getElementById("user-date").value;
+      if (!name || !phone || !date) {
+        alert("Please fill out all fields correctly, including the date.");
+        return;
+      }
 
-  const qtyThalai = parseInt(document.getElementById("qty-thalai")?.value || 0);
-  const qtyParcel = parseInt(document.getElementById("qty-parcel")?.value || 0);
-  const qtyRound  = parseInt(document.getElementById("qty-round")?.value  || 0);
+      if (cart.length === 0) {
+        alert("Please add at least one item to the cart.");
+        return;
+      }
 
-  if (!name || !phone) {
-    alert("Please fill out all fields correctly.");
-    return;
-  }
+      const total = cart.reduce((sum, item) => sum + parseFloat(item.total), 0).toFixed(2);
+      const orderData = {
+        name,
+        phone,
+        date,
+        orderTime: new Date().toISOString(),
+        items: cart,
+        total
+      };
 
-  const cart = [];
+      try {
+        const userRef = window.ref(window.firebaseDB, `bananaOrders/${phone}/${date}`);
+        const newOrderRef = window.push(userRef);
+        await window.set(newOrderRef, orderData);
 
-  if (qtyThalai > 0) {
-    cart.push({
-      name: "Thalai Ilai Leaf",
-      quantity: qtyThalai,
-      price: 4,
-      total: (qtyThalai * 4).toFixed(2)
+        await generatePDFInvoice(name, phone, cart, total, date);
+
+        alert("✅ Order placed and full invoice downloaded!");
+      } catch (err) {
+        console.error("❌ Firebase Error:", err);
+        alert("Failed to place order.");
+      }
+    }
+
+    async function generatePDFInvoice(name, phone, cart, total, date) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.setTextColor(34, 139, 34); 
+    doc.text("Banana Leaves Invoice", 20, 20);
+
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text(`Customer Name: ${name}`, 20, 30);
+    doc.text(`Phone Number: ${phone}`, 20, 37);
+    doc.text(`Date: ${date}`, 20, 44);
+
+    doc.setFontSize(13);
+    doc.text("Items Ordered:", 20, 55);
+
+    const startY = 62;
+    let y = startY;
+
+    doc.setFontSize(11);
+    doc.text("No", 20, y);
+    doc.text("Item", 30, y);
+    doc.text("Qty", 110, y);
+    doc.text("Rate", 130, y);
+    doc.text("Total", 160, y);
+    y += 6;
+    cart.forEach((item, i) => {
+      const itemTotal = parseFloat(item.quantity * item.price).toFixed(2);
+
+      doc.text(`${i + 1}`, 20, y);
+      doc.text(item.name, 30, y);
+      doc.text(`${item.quantity}`, 110, y);
+      doc.text(`Rs.${item.price.toFixed(2)}`, 130, y);
+        doc.text(`Rs.${itemTotal}`, 160, y);
+      y += 8;
     });
+
+    y += 4;
+    doc.setFontSize(12);
+    doc.setTextColor(0, 102, 0); 
+    doc.text(`Grand Total: Rs.${parseFloat(total).toFixed(2)}`, 130, y);
+
+    y += 20;
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Thank you for your order!", 20, y);
+
+    const fileName = `Invoice_${name}_${date}_${Date.now()}.pdf`;
+    doc.save(fileName);
   }
-
-  if (qtyParcel > 0) {
-    cart.push({
-      name: "Parcel Leaf",
-      quantity: qtyParcel,
-      price: 1.5,
-      total: (qtyParcel * 1.5).toFixed(2)
-    });
-  }
-
-  if (qtyRound > 0) {
-    cart.push({
-      name: "Round Shape Leaf",
-      quantity: qtyRound,
-      price: 1.5,
-      total: (qtyRound * 1.5).toFixed(2)
-    });
-  }
-
-  if (cart.length === 0) {
-    alert("Please select at least one item.");
-    return;
-  }
-
-  const total = cart.reduce((sum, item) => sum + parseFloat(item.total), 0).toFixed(2);
-
-  const orderData = {
-    name,
-    phone,
-    date: today,
-    orderTime: new Date().toISOString(),
-    items: cart,
-    total
-  };
-
-  try {
-    const userRef = window.ref(window.firebaseDB, `bananaOrders/${phone}/${today}`);
-    const newOrderRef = window.push(userRef);
-    await window.set(newOrderRef, orderData);
-
-    await generatePDFInvoice(name, phone, cart, total, today);
-
-    alert("✅ Order placed and full invoice downloaded!");
-  } catch (err) {
-    console.error("❌ Firebase Error:", err);
-    alert("Failed to place order.");
-  }
-}
-
-
-doc.text(`${rupee}${item.price.toFixed(2)}`, 130, y);
-
-
-   async function generatePDFInvoice(name, phone, cart, total, date) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const rupee = "\u20B9";
-  // Header
-  doc.setFontSize(18);
-  doc.setTextColor(34, 139, 34); // green
-  doc.text("Banana Leaves Invoice", 20, 20);
-
-  // Customer Info
-  doc.setFontSize(12);
-  doc.setTextColor(0);
-  doc.text(`Customer Name: ${name}`, 20, 30);
-  doc.text(`Phone Number: ${phone}`, 20, 37);
-  doc.text(`Date: ${date}`, 20, 44);
-
-  // Table Heading
-  doc.setFontSize(13);
-  doc.text("Items Ordered:", 20, 55);
-
-  // Column headers
-  const startY = 62;
-  let y = startY;
-
-  doc.setFontSize(11);
-  doc.text("No", 20, y);
-  doc.text("Item", 30, y);
-  doc.text("Qty", 110, y);
-  doc.text("Rate", 130, y);
-  doc.text("Total", 160, y);
-
-  y += 6;
-
-  cart.forEach((item, i) => {
-    const itemTotal = parseFloat(item.quantity * item.price).toFixed(2);
-
-    doc.text(`${i + 1}`, 20, y);
-    doc.text(item.name, 30, y);
-    doc.text(`${item.quantity}`, 110, y);
-    doc.text(`${rupee}${item.price.toFixed(2)}`, 130, y);
-    doc.text(`${rupee}${itemTotal}`, 160, y);
-    y += 8;
-  });
-
-  // Grand Total
-  y += 4;
-  doc.setFontSize(12);
-  doc.setTextColor(0, 102, 0); // dark green
-  doc.text(`Grand Total: ${rupee}${parseFloat(total).toFixed(2)}`, 130, y);
-
-  // Footer
-  y += 20;
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text("Thank you for your order!", 20, y);
-
-  // Save PDF
-  const fileName = `Invoice_${name}_${date}_${Date.now()}.pdf`;
-  doc.save(fileName);
-}
-
-
-
+  document.addEventListener("DOMContentLoaded", () => {
+    const saved = localStorage.getItem('cartData');
+    if (saved) {
+      cart = JSON.parse(saved);
+      renderCart();
+    }
+})
   </script>
 
 </body>
