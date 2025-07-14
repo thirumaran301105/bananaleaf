@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fresh Banana Leaves</title>
+  <title>Balaji Banana Leaves</title>
   <link rel="icon" href="logo.png" type="image/png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -177,400 +177,46 @@
     <p class="text-sm">© 2025 Fresh Banana Leaves. All rights reserved.</p>
     <p class="text-xs">For inquiries, call us at +91 9791006424 or +91 9600082467</p>
   </footer>
+  <img id="companyLogo" src="logo.png" style="display:none;" crossorigin="anonymous" />
 
-  <script>
-    const prices = {
-      thalai: 4,
-      parcel: 1.5,
-      round: 1.5
-    };
+  <!-- ✅ External libraries first -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 
-    const names = {
-      thalai: "Thalai Ilai Leaf",
-      parcel: "Parcel Leaf",
-      round: "Round Shape Leaf"
-    };
-
-    let cart = [];
-    let userFormShown = false;
-
-    function adjustQty(type, change) {
-      const input = document.getElementById(`qty-${type}`);
-      let qty = parseInt(input.value) || 1;
-      qty = Math.max(1, qty + change);
-      input.value = qty;
-      updateTotal(type);
-    }
-
-    function updateTotal(type) {
-      const qty = parseInt(document.getElementById(`qty-${type}`).value) || 1;
-      const total = (qty * prices[type]).toFixed(2);
-      document.getElementById(`total-${type}`).innerText = total;
-    }
-
-    function persistCart () {
-      localStorage.setItem('cartData', JSON.stringify(cart));
-    }
+<!-- ✅ Your custom scripts -->
+<script src="base.js"></script>
+<script src="cart.js"></script>
+<script type="module" src="firebasekit.js"></script>
+<script src="ordernow.js"></script> <!-- This must come AFTER jsPDF libraries -->
+<script src="fetching.js"></script>
 
 
-
-    function addToCart(type) {
-  const qty   = parseInt(document.getElementById(`qty-${type}`).value) || 1;
-  const price = prices[type];
-  const name  = names[type];
-
-  // 👉 look for an existing line with the same name
-  const line = cart.find(item => item.name === name);
-
-  if (line) {
-    // already in cart → bump its quantity & total
-    line.quantity += qty;
-    line.total     = (line.quantity * price).toFixed(2);
-  } else {
-    // not yet in cart → create a fresh entry
-    cart.push({
-      name,
-      quantity: qty,
-      price,
-      total: (qty * price).toFixed(2)
-    });
-  }
-
-  persistCart();      // keep localStorage in sync
-  renderCart();       // refresh the UI
-
-  if (!userFormShown) { showUserForm(); userFormShown = true; }
-}
-
-
-
-    function removeFromCart(index) {
-  cart.splice(index, 1);
-  persistCart();
-  renderCart();
-}
-
-    function changeCartQty(index, delta) {
-  const line = cart[index];
-  if (!line) return;
-
-  line.quantity += delta;            // bump up/down
-  if (line.quantity <= 0) {          // 0 or less → remove
-    cart.splice(index, 1);
-  } else {
-    line.total = (line.quantity * line.price).toFixed(2);
-  }
-
-  persistCart();                     // keep localStorage in‑sync
-  renderCart();                      // refresh UI
-}
-
-    function renderCart() {
-  const cartDiv = document.getElementById("cart-items");
-  document.getElementById("cart-count").innerText = cart.length;
-
-  if (cart.length === 0) {
-    cartDiv.innerHTML = `
-      <h2 class='text-2xl font-bold mb-4'>🛒 Your Cart</h2>
-      <p class='text-gray-600'>No items in cart yet.</p>`;
-    return;
-  }
-
-  let html = `<h2 class='text-2xl font-bold mb-4'>🛒 Your Cart</h2><ul class="space-y-4">`;
-
-  cart.forEach((item, index) => {
-    html += `
-      <li class="flex justify-between items-center border-b pb-2">
+  <div id="admin-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center hidden">
+    <div class="bg-white w-full max-w-lg p-6 rounded-xl shadow-lg relative">
+      <button id="close-modal" class="absolute top-3 right-3 text-xl leading-none">&times;</button>
+      <h2 class="text-xl font-bold mb-4">Find Bookings</h2>
+      <form id="search-form" class="space-y-4">
         <div>
-          <p class="font-semibold">${item.name}</p>
-          <div class="text-sm text-gray-600 flex items-center space-x-1">
-            <button onclick="changeCartQty(${index}, -1)" class="px-2 bg-gray-200 rounded leading-none">−</button>
-            <span>${item.quantity}</span>
-            <button onclick="changeCartQty(${index}, 1)" class="px-2 bg-gray-200 rounded leading-none">+</button>
-            <span class="ml-1">× ₹${item.price}</span>
-          </div>
+          <label class="block text-sm mb-1">Phone (required)</label>
+          <input id="s-phone" class="w-full p-2 border rounded"
+                placeholder="+91.." required />
         </div>
-        <div class="flex items-center space-x-3">
-          <p class="text-green-700 font-bold">₹${item.total}</p>
-          <button onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700 text-sm">🗑 Remove</button>
-        </div>
-      </li>`;
-  });
-
-  const grandTotal = cart.reduce((sum, item) => sum + parseFloat(item.total), 0).toFixed(2);
-  html += `</ul><div class="mt-4 text-right font-bold text-lg text-green-700">Total: ₹${grandTotal}</div>`;
-
-  html += `
-    <div class="mt-6">
-      <form onsubmit="submitUser(event)" class="border-t pt-4">
-        <h3 class="text-lg font-semibold mb-2">Enter Your Details</h3>
-        <div class="mb-2">
-          <label class="block text-sm">Name:</label>
-          <input type="text" id="user-name" class="w-full p-2 border rounded" required>
-        </div>
-        <div class="mb-2">
-          <label class="block text-sm">Phone Number:</label>
-          <input type="tel" id="user-phone" class="w-full p-2 border rounded" required>
-        </div>
-        <div class="mb-2">
-          <label class="block text-sm">Order Date:</label>
-          <input type="date" id="user-date" class="w-full p-2 border rounded" required>
-        </div>
+        <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+          🔎 Search
+        </button>
       </form>
+      <div id="results" class="mt-6 text-sm"></div>
     </div>
-    <div class="mt-4 text-right">
-      <button onclick="orderNow()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-        🛒 Order Now
-      </button>
-    </div>
-  `;
-
-  cartDiv.innerHTML = html;
-}
-
-
-    function scrollToCart() {
-      document.getElementById("cart-items").scrollIntoView({ behavior: "smooth" });
-    }
-
-    function showUserForm() {
-      renderCart();
-    }
-    </script>
-    <script type="module">
-  import { get, child } from
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-  /* … your existing showModal / hideModal code stays … */
-
-  // ———  PHONE‑ONLY look‑up ———
-  document.getElementById('search-form')
-    .addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-
-      const phone = document.getElementById('s-phone').value.trim();
-      const out   = document.getElementById('results');
-
-      if (!phone) {              // should never happen (required attr) 
-        out.innerHTML = 'Please enter a phone number.'; 
-        return;
-      }
-
-      out.innerHTML = 'Searching…';
-
-      try {
-        // path: bananaOrders/<phone>/*
-        const snap = await get(
-          child(window.ref(window.firebaseDB), `bananaOrders/${phone}`)
-        );
-
-        if (!snap.exists()) {
-          out.innerHTML = 'No bookings found for that number.';
-          return;
-        }
-
-        /*  Flatten by <date>/<pushId> → row  */
-        const rows = [];
-        Object.entries(snap.val()).forEach(([date, orders]) => {
-          Object.values(orders).forEach(order =>
-            rows.push({ date, ...order })
-          );
-        });
-
-        // order newest first (optional)
-        rows.sort((a, b) => (b.date > a.date ? 1 : -1));
-
-        /*  Render */
-        out.innerHTML = rows.map(r => `
-          <div class="border-b py-2">
-            <div><strong>${r.date}</strong></div>
-            <div>${r.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
-            <div class="text-green-700 font-semibold">₹${r.total}</div>
-          </div>`).join('');
-
-      } catch (err) {
-        console.error(err);
-        out.innerHTML = 'Error while querying database.';
-      }
-    });
-</script>
-
-
-  <script>
-    async function orderNow() {
-      const name = document.getElementById("user-name").value;
-      const phone = document.getElementById("user-phone").value;
-      const date = document.getElementById("user-date").value;
-      if (!name || !phone || !date) {
-        alert("Please fill out all fields correctly, including the date.");
-        return;
-      }
-
-      if (cart.length === 0) {
-        alert("Please add at least one item to the cart.");
-        return;
-      }
-
-      const total = cart.reduce((sum, item) => sum + parseFloat(item.total), 0).toFixed(2);
-      const orderData = {
-        name,
-        phone,
-        date,
-        orderTime: new Date().toISOString(),
-        items: cart,
-        total
-      };
-
-      try {
-        const userRef = window.ref(window.firebaseDB, `bananaOrders/${phone}/${date}`);
-        const newOrderRef = window.push(userRef);
-        await window.set(newOrderRef, orderData);
-
-        await generatePDFInvoice(name, phone, cart, total, date);
-
-        alert("✅ Order placed and full invoice downloaded!");
-      } catch (err) {
-        console.error("❌ Firebase Error:", err);
-        alert("Failed to place order.");
-      }
-    }
-
-    async function generatePDFInvoice(name, phone, cart, total, date) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.setTextColor(34, 139, 34); 
-    doc.text("Banana Leaves Invoice", 20, 20);
-
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text(`Customer Name: ${name}`, 20, 30);
-    doc.text(`Phone Number: ${phone}`, 20, 37);
-    doc.text(`Date: ${date}`, 20, 44);
-
-    doc.setFontSize(13);
-    doc.text("Items Ordered:", 20, 55);
-
-    const startY = 62;
-    let y = startY;
-
-    doc.setFontSize(11);
-    doc.text("No", 20, y);
-    doc.text("Item", 30, y);
-    doc.text("Qty", 110, y);
-    doc.text("Rate", 130, y);
-    doc.text("Total", 160, y);
-    y += 6;
-    cart.forEach((item, i) => {
-      const itemTotal = parseFloat(item.quantity * item.price).toFixed(2);
-
-      doc.text(`${i + 1}`, 20, y);
-      doc.text(item.name, 30, y);
-      doc.text(`${item.quantity}`, 110, y);
-      doc.text(`Rs.${item.price.toFixed(2)}`, 130, y);
-        doc.text(`Rs.${itemTotal}`, 160, y);
-      y += 8;
-    });
-
-    y += 4;
-    doc.setFontSize(12);
-    doc.setTextColor(0, 102, 0); 
-    doc.text(`Grand Total: Rs.${parseFloat(total).toFixed(2)}`, 130, y);
-
-    y += 20;
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("Thank you for your order!", 20, y);
-
-    const fileName = `Invoice_${name}_${date}_${Date.now()}.pdf`;
-    doc.save(fileName);
-  }
-  document.addEventListener("DOMContentLoaded", () => {
-    const saved = localStorage.getItem('cartData');
-    if (saved) {
-      cart = JSON.parse(saved);
-      renderCart();
-    }
-})
-  </script>
-<<<<<<< HEAD
-=======
-  <script>
-    // Wrap DOM code so elements definitely exist
-    document.addEventListener('DOMContentLoaded', () => {
-      const modal     = document.getElementById('admin-modal');
-      const modalBox  = document.getElementById('modal-box');
-      const openBtn   = document.getElementById('admin-btn');
-      const closeBtn  = document.getElementById('close-modal');
-      const resultsEl = document.getElementById('results');
-      const phoneIn   = document.getElementById('s-phone');
-
-      const openModal = () => { modal.classList.remove('hidden'); phoneIn.focus(); };
-      const closeModal = () => {
-        modal.classList.add('hidden');        // hide overlay
-        resultsEl.innerHTML = '';            // clear old search output
-        document.getElementById('search-form').reset();
-      };
-
-      openBtn?.addEventListener('click', openModal);
-      closeBtn?.addEventListener('click', closeModal);
-
-      // click outside the white box also closes modal
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-      });
-
-      // PHONE‑ONLY look‑up
-      document.getElementById('search-form').addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        const phone = phoneIn.value.trim();
-        if (!phone) { resultsEl.textContent = 'Please enter a phone number.'; return; }
-        resultsEl.textContent = 'Searching…';
-
-        try {
-          const snap = await window.get(window.child(window.ref(window.firebaseDB), `bananaOrders/${phone}`));
-          if (!snap.exists()) { resultsEl.textContent = 'No bookings found for that number.'; return; }
-
-          const rows = [];
-          Object.entries(snap.val()).forEach(([date, orders]) => {
-            Object.values(orders).forEach(order => rows.push({ date, ...order }));
-          });
-          rows.sort((a,b)=> (b.date> a.date ? 1 : -1));
-
-          resultsEl.innerHTML = rows.map(r => `
-            <div class="border-b py-2">
-              <div><strong>${r.date}</strong></div>
-              <div>${r.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
-              <div class="text-green-700 font-semibold">₹${r.total}</div>
-            </div>`).join('');
-        } catch (err) {
-          console.error(err);
-          resultsEl.textContent = 'Error while querying database.';
-        }
-      });
-    });
-  </script>
-<div id="admin-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center hidden">
-  <div class="bg-white w-full max-w-lg p-6 rounded-xl shadow-lg relative">
-    <button id="close-modal" class="absolute top-3 right-3 text-xl leading-none">&times;</button>
-
-    <h2 class="text-xl font-bold mb-4">Find Bookings</h2>
-
-    <form id="search-form" class="space-y-4">
-      <div>
-        <label class="block text-sm mb-1">Phone (required)</label>
-        <input id="s-phone" class="w-full p-2 border rounded"
-               placeholder="+91.." required />
-      </div>
-
-      <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-        🔎 Search
-      </button>
-    </form>
-
-    <div id="results" class="mt-6 text-sm"></div>
   </div>
-</div>
+<!-- <script type="module">
+  import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+  import { getFunctions, httpsCallable }
+         from "https://www.gstatic.com/firebasejs/10.12.1/firebase-functions.js";
+
+  const functions = getFunctions(app);
+  window.firebaseFunctions = functions; 
+  window.httpsCallable    = httpsCallable; 
+</script> -->
 
 
 </body>
